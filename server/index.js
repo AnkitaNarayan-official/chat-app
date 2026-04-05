@@ -1,0 +1,46 @@
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const { Server } = require('socket.io');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+const httpServer = http.createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*'
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  socket.on('join_room', ({ username, room }) => {
+    socket.join(room);
+    console.log(`${username} joined ${room}`);
+    socket.to(room).emit('user_joined', username);
+  });
+
+  socket.on('send_message', ({ room, message, username }) => {
+    socket.to(room).emit('receive_message', { message, username });
+  });
+
+  socket.on('typing', ({ room, username }) => {
+    socket.to(room).emit('typing', username);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+  });
+});
+
+httpServer.listen(3001, () => {
+  console.log('Server is running on port 3001');
+});
