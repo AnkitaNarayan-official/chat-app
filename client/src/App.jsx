@@ -41,14 +41,25 @@ function App() {
 
   useEffect(() => {
     socket.on("receive_message", (data) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          author: data.author,
-          message: data.message,
-          time: data.time,
-        },
-      ]);
+      setMessages((prev) => {
+        const exists = prev.some(
+          (msg) =>
+            msg.author === data.author &&
+            msg.message === data.message &&
+            msg.time === data.time
+        );
+
+        if (exists) return prev;
+
+        return [
+          ...prev,
+          {
+            author: data.author,
+            message: data.message,
+            time: data.time,
+          },
+        ];
+      });
     });
 
     socket.on("user_joined", (data) => {
@@ -84,7 +95,12 @@ function App() {
 
   const joinRoom = () => {
     if (username !== "" && selectedRoom) {
-      socket.emit("join_room", selectedRoom.name);
+      const roomData = {
+        room: selectedRoom.name,
+        username: username,
+      };
+
+      socket.emit("join_room", roomData);
 
       setRoom(selectedRoom.name);
 
@@ -93,14 +109,14 @@ function App() {
       setMessages([
         {
           system: true,
-          message: `${username} joined the room`,
+          message: `You joined ${selectedRoom.name}`,
         },
       ]);
     }
   };
 
   const sendMessage = async () => {
-    if (newMessage !== "") {
+    if (newMessage.trim() !== "") {
       const messageData = {
         room: room,
         author: username,
@@ -111,6 +127,13 @@ function App() {
         }),
       };
 
+      // SHOW MESSAGE INSTANTLY
+      setMessages((prev) => [
+        ...prev,
+        messageData,
+      ]);
+
+      // SEND TO SERVER
       socket.emit("send_message", messageData);
 
       setNewMessage("");
@@ -168,6 +191,12 @@ function App() {
         </div>
 
         <div className="messages-area">
+          {messages.length === 0 && (
+            <p className="empty-msg">
+              No messages yet 👋
+            </p>
+          )}
+
           {messages.map((msg, index) => {
             if (msg.system) {
               return (
